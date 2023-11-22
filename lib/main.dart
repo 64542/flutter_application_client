@@ -135,19 +135,24 @@ class _MainState extends State<Main> {
                   onTap: () {
                     int cnt = 1;
                     int price = item['itemPrice'];
+                    var optiondata = {};
+                    var orderdata = {};
+
                     List<dynamic> options = item['options'];
                     List<Widget> datas = [];
                     for (var option in options) {
                       var values = option['optionValue'].toString().split('\n');
+                      optiondata[option['optionName']] = values[0];
                       datas.add(ListTile(
                           title: Text(option['optionName']),
                           subtitle: CustomRadioButton(
+                            defaultSelected: values[0],
                             enableButtonWrap: true,
                             wrapAlignment: WrapAlignment.start,
                             buttonLables: values,
                             buttonValues: values,
                             radioButtonValue: (p0) {
-                              print(p0);
+                              optiondata[option['optionName']] = p0;
                             },
                             unSelectedColor: Colors.white,
                             selectedColor: Colors.teal,
@@ -176,9 +181,15 @@ class _MainState extends State<Main> {
                           content: Column(
                             children: datas,
                           ),
-                          actions: const [
-                            Text('취소'),
-                            Text('담기'),
+                          actions: [
+                            const Text('취소'),
+                            TextButton(
+                                onPressed: () {
+                                  orderdata['orderItem'] = item['itemName'];
+                                  orderdata['orderQty'] = cnt;
+                                  orderdata['options'] = optiondata;
+                                },
+                                child: const Text('담기')),
                           ],
                         );
                       }),
