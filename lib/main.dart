@@ -2,6 +2,7 @@ import 'package:cart_stepper/cart_stepper.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_application_client/order_result.dart';
 import 'firebase_options.dart';
 import 'package:intl/intl.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -29,10 +30,9 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: ThemeData.light(useMaterial3: false),
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: const Main(),
+      home: Main(),
     );
   }
 }
@@ -52,6 +52,8 @@ class _MainState extends State<Main> {
   dynamic categoryList = const Text('category');
   dynamic itemList = const Text('item');
   PanelController panelController = PanelController(); //장바구니 컨르롤러
+  var orderList = []; // 장바구니 주문 목록
+  dynamic orderListView = const Center(child: Text('퉁퉁이론'));
 
   String toCurrency(int n) {
     return NumberFormat.currency(locale: "ko_KR", symbol: "₩").format(n);
@@ -61,6 +63,35 @@ class _MainState extends State<Main> {
     //   name: "",
     //   decimalDigits: 0,
     // ).format(n);
+  }
+
+  // 장바구니 목록 보기
+  void showOrderList() {
+    setState(() {
+      orderListView = ListView.separated(
+          itemBuilder: (context, index) {
+            var order = orderList[index];
+            var o = ''; // 중괄호를 없애고 옵션별로 줄바꿈 만들기 위한 변수
+            for (var k in order['options'].keys) {
+              o += '$k : ${order['options'][k]} \n';
+            }
+            return ListTile(
+              leading: IconButton(
+                onPressed: () {
+                  orderList.removeAt(index);
+                  showOrderList();
+                },
+                icon: const Icon(Icons.close),
+              ),
+              title: Text('${order['orderItem']} X ${order['orderQty']}'),
+              subtitle: Text(o),
+              trailing:
+                  Text(toCurrency(order['orderPrice'] * order['orderQty'])),
+            );
+          },
+          separatorBuilder: (context, index) => const Divider(),
+          itemCount: orderList.length);
+    });
   }
 
   // 카테고리 보기 기능
@@ -131,41 +162,47 @@ class _MainState extends State<Main> {
               // 아이템이 존재하는 경우
               List<Widget> lt = [];
               for (var item in items) {
-                lt.add(GestureDetector(
-                  onTap: () {
-                    int cnt = 1;
-                    int price = item['itemPrice'];
-                    var optiondata = {};
-                    var orderdata = {};
+                lt.add(
+                  GestureDetector(
+                    onTap: () {
+                      int cnt = 1;
+                      int price = item['itemPrice'];
+                      var optionData = {};
+                      var orderData = {};
 
-                    List<dynamic> options = item['options'];
-                    List<Widget> datas = [];
-                    for (var option in options) {
-                      var values = option['optionValue'].toString().split('\n');
-                      optiondata[option['optionName']] = values[0];
-                      datas.add(ListTile(
+                      // options를 가공
+                      List<dynamic> options = item['options'];
+                      List<Widget> datas = [];
+                      for (var option in options) {
+                        var values =
+                            option['optionValue'].toString().split('\n');
+                        optionData[option['optionName']] = values[0];
+
+                        datas.add(ListTile(
                           title: Text(option['optionName']),
                           subtitle: CustomRadioButton(
-                            defaultSelected: values[0],
                             enableButtonWrap: true,
                             wrapAlignment: WrapAlignment.start,
+                            defaultSelected: values[0],
                             buttonLables: values,
                             buttonValues: values,
-                            radioButtonValue: (p0) {
-                              optiondata[option['optionName']] = p0;
+                            radioButtonValue: (value) {
+                              optionData[option['optionName']] = value;
+                              print(optionData);
                             },
-                            unSelectedColor: Colors.white,
+                            unSelectedColor: Colors.black54,
                             selectedColor: Colors.teal,
-                          )));
-                    }
-                    showDialog(
-                      context: context,
-                      builder: (context) =>
-                          StatefulBuilder(builder: (context, st) {
-                        return AlertDialog(
-                          title: ListTile(
+                          ),
+                        ));
+                      }
+                      showDialog(
+                        context: context,
+                        builder: (context) =>
+                            StatefulBuilder(builder: (context, st) {
+                          return AlertDialog(
+                            title: ListTile(
                               title: Text('${item['itemName']}'),
-                              subtitle: Text(toCurrency(price)),
+                              subtitle: Text(toCurrency(price * cnt)),
                               trailing: CartStepper(
                                 value: cnt,
                                 stepper: 1,
@@ -173,48 +210,57 @@ class _MainState extends State<Main> {
                                   if (value > 0) {
                                     st(() {
                                       cnt = value;
-                                      price = item['itemPrice'] * cnt;
                                     });
                                   }
                                 },
-                              )),
-                          content: Column(
-                            children: datas,
-                          ),
-                          actions: [
-                            const Text('취소'),
-                            TextButton(
-                                onPressed: () {
-                                  orderdata['orderItem'] = item['itemName'];
-                                  orderdata['orderQty'] = cnt;
-                                  orderdata['options'] = optiondata;
-                                },
-                                child: const Text('담기')),
-                          ],
-                        );
-                      }),
-                    );
-                  },
-                  child: Container(
-                    width: 150,
-                    height: 150,
-                    margin: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                        border: Border.all(width: 2, color: Colors.black),
-                        color: Colors.redAccent,
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Text(item['itemName']),
-                        Text(toCurrency(item['itemPrice']))
-                      ],
+                              ),
+                            ),
+                            content: Column(
+                              children: datas,
+                            ),
+                            actions: [
+                              TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text('취소')),
+                              TextButton(
+                                  onPressed: () {
+                                    orderData['orderItem'] = item['itemName'];
+                                    orderData['orderQty'] = cnt;
+                                    orderData['options'] = optionData;
+                                    orderData['orderPrice'] = item['itemPrice'];
+
+                                    orderList.add(orderData);
+                                    showOrderList();
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text('담기')),
+                            ],
+                          );
+                        }),
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.all(5),
+                      width: 150,
+                      height: 150,
+                      decoration: BoxDecoration(
+                          border: Border.all(width: 2, color: Colors.black),
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Text(item['itemName']),
+                          Text(toCurrency(item['itemPrice']))
+                        ],
+                      ),
                     ),
                   ),
-                ));
+                );
               }
               return Wrap(
-                alignment: WrapAlignment.spaceAround,
                 children: lt,
               );
             }
@@ -245,7 +291,7 @@ class _MainState extends State<Main> {
           Transform.translate(
             offset: const Offset(-10, 10),
             child: Badge(
-              label: const Text('1'), // 장바구니 개수
+              label: Text('${orderList.length}'), // 장바구니 개수
               child: IconButton(
                   onPressed: () {
                     if (panelController.isPanelClosed) {
@@ -267,7 +313,72 @@ class _MainState extends State<Main> {
         maxHeight: 500,
         // 장바구니 슬라이딩
         panel: Container(
-          color: Colors.amber,
+          decoration: const BoxDecoration(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            color: Colors.lightGreenAccent,
+          ),
+          child: Column(
+            children: [
+              Container(
+                height: 50,
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                  color: Colors.lightGreenAccent,
+                ),
+                child: const Center(
+                    child: Text(
+                  '장바구니',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                )),
+              ),
+              Expanded(
+                child: orderListView,
+              ),
+              ElevatedButton(
+                  onPressed: orderList.isEmpty
+                      ? null
+                      : () async {
+                          TextEditingController controller =
+                              TextEditingController();
+                          var result = await showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                    title: const Text('결재하기'),
+                                    content: TextFormField(
+                                      controller: controller,
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context, null);
+                                          },
+                                          child: const Text('취소')),
+                                      TextButton(
+                                          onPressed: () {
+                                            var orderResult = {
+                                              'order': orderList,
+                                              'orderName': controller.text,
+                                            };
+                                            Navigator.pop(context, orderResult);
+                                          },
+                                          child: const Text('결제'))
+                                    ],
+                                  ));
+                          if (result != null) {
+                            // 결제가 완료되어 다음 페이지에서 주문 번호를 받는다.
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    OrderResult(orderResult: result),
+                              ),
+                            );
+                          }
+                        },
+                  child: const Text('결재하기'))
+            ],
+          ),
         ),
         body: Column(
           children: [
