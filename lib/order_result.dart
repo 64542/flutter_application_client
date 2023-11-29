@@ -1,4 +1,4 @@
-import 'package:firebase_core/firebase_core.dart';
+import 'package:circular_countdown_timer/circular_countdown_timer.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -16,6 +16,8 @@ class OrderResult extends StatefulWidget {
 
 class _OrderResultState extends State<OrderResult> {
   late Map<String, dynamic> orderResult;
+  dynamic resultView = const Text('주문중입니다...');
+  int duration = 10;
 
   Future<int> getOederNember() async {
     //가장 마지막 번호
@@ -42,6 +44,46 @@ class _OrderResultState extends State<OrderResult> {
     return number;
   }
 
+  Future<void> setOrder() async {
+    int number = await getOederNember();
+    orderResult['orderNumber'] = number;
+    orderResult['orderTime'] = Timestamp.fromDate(DateTime.now());
+    orderResult['orderComplete'] = false;
+    await firestore
+        .collection(orderCollectionName)
+        .add(orderResult)
+        .then((value) {
+      showResult(number);
+      return null;
+    }).onError((error, stackTrace) {
+      print('error');
+      return null;
+    });
+  }
+
+  void showResult(int number) {
+    setState(() {
+      resultView = Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Text('주문이 완료되었습니다.'),
+          Text('주문번호 $number'),
+          Text('$duration초 후에 창이 닫힙니다.'),
+          CircularCountDownTimer(
+              isReverse: true,
+              onComplete: () {
+                Navigator.pop(context);
+              },
+              width: 50,
+              height: 50,
+              duration: duration,
+              fillColor: Colors.blue,
+              ringColor: Colors.red)
+        ],
+      );
+    });
+  }
+
   @override
   void initState() {
     // TODO: implement initState
@@ -51,7 +93,7 @@ class _OrderResultState extends State<OrderResult> {
 
     //현재 주문번호를 설정
     //오늘을 기준으로 여태까지 개수 10건 -> 11번, 만약 한건도 없으면 1번
-    getOederNember();
+    setOrder();
 
     //주문번호, 시간포함, 데이터 저장
   }
@@ -59,7 +101,10 @@ class _OrderResultState extends State<OrderResult> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Text(orderResult.toString()),
+      appBar: AppBar(
+        title: const Text('감사합니다.'),
+      ),
+      body: resultView,
     );
   }
 }

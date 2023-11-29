@@ -41,6 +41,7 @@ dependencies:
   sliding_up_panel: ^2.0.0+1
   custom_radio_grouped_button: ^2.2.1
   cart_stepper: ^4.1.2
+  circular_countdown_timer: ^0.2.3
 
 dev_dependencies:
   flutter_test:

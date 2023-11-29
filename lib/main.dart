@@ -272,6 +272,15 @@ class _MainState extends State<Main> {
       );
     });
   }
+
+  //장바구니 초기화
+  void clearOrder() {
+    setState(() {
+      orderList.clear();
+      showOrderList();
+    });
+  }
+
   // 장바구니 기능
 
   @override
@@ -367,13 +376,14 @@ class _MainState extends State<Main> {
                                   ));
                           if (result != null) {
                             // 결제가 완료되어 다음 페이지에서 주문 번호를 받는다.
-                            Navigator.push(
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) =>
                                     OrderResult(orderResult: result),
                               ),
                             );
+                            clearOrder();
                           }
                         },
                   child: const Text('결재하기'))
